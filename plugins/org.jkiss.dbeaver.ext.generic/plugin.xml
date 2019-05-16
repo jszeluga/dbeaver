@@ -1150,7 +1150,7 @@
                         id="spirent_druid"
                         label="Spirent Druid"
                         icon="icons/druid_icon.png"
-                        iconBig="icons/druid_icon@2x.png"
+                        iconBig="icons/druid_icon_big.png"
                         class="org.apache.calcite.avatica.remote.Driver"
                         sampleURL="jdbc:avatica:remote:url=http://{host}:{port}/druid/v2/sql/avatica/;KEYTAB={file};PRINCIPAL={user};authentication=SPNEGO"
                         defaultPort="8082"
