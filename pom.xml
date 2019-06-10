@@ -9,7 +9,7 @@
     <packaging>pom</packaging>
 
     <properties>
-        <dbeaver-version>6.0.5</dbeaver-version>
+        <dbeaver-version>6.1.0</dbeaver-version>
         <dbeaver-product>DBeaver</dbeaver-product>
         <tycho-version>1.1.0</tycho-version>
         <tycho-versions-version>0.26.0</tycho-versions-version>
@@ -251,6 +251,41 @@
                 <!-- Use Oxygen repo -->
                 <eclipse-p2-repo.url>http://download.eclipse.org/releases/oxygen/</eclipse-p2-repo.url>
             </properties>
+        </profile>
+
+        <!--
+            Profile for 32bit builds.
+            Also requires profile eclipse-oxygen (as newer Eclipse versions don't support 32bit arch).
+            Also Java 1.8 must be used.
+        -->
+        <profile>
+            <id>32bit</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.eclipse.tycho</groupId>
+                        <artifactId>target-platform-configuration</artifactId>
+                        <version>${tycho-version}</version>
+                        <configuration>
+                            <environments>
+                                <environment>
+                                    <os>win32</os>
+                                    <ws>win32</ws>
+                                    <arch>x86</arch>
+                                </environment>
+                                <environment>
+                                    <os>linux</os>
+                                    <ws>gtk</ws>
+                                    <arch>x86</arch>
+                                </environment>
+                            </environments>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
 
         <!-- Profile for jars sign -->

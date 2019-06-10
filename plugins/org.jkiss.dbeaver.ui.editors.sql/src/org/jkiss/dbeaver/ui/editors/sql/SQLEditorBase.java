@@ -36,7 +36,6 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorInput;
-import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.eclipse.ui.editors.text.EditorsUI;
@@ -53,7 +52,10 @@ import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.*;
+import org.jkiss.dbeaver.model.sql.completion.SQLCompletionContext;
+import org.jkiss.dbeaver.model.sql.parser.SQLParserPartitions;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.model.text.TextUtils;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.editors.BaseTextEditorCommands;
 import org.jkiss.dbeaver.ui.editors.EditorUtils;
@@ -61,6 +63,7 @@ import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
 import org.jkiss.dbeaver.ui.editors.sql.preferences.*;
 import org.jkiss.dbeaver.ui.editors.sql.registry.SQLCommandsRegistry;
 import org.jkiss.dbeaver.ui.editors.sql.syntax.SQLCharacterPairMatcher;
+import org.jkiss.dbeaver.ui.editors.sql.syntax.SQLEditorCompletionContext;
 import org.jkiss.dbeaver.ui.editors.sql.syntax.SQLPartitionScanner;
 import org.jkiss.dbeaver.ui.editors.sql.syntax.SQLRuleManager;
 import org.jkiss.dbeaver.ui.editors.sql.syntax.rules.SQLVariableRule;
@@ -69,7 +72,7 @@ import org.jkiss.dbeaver.ui.editors.sql.syntax.tokens.SQLToken;
 import org.jkiss.dbeaver.ui.editors.sql.templates.SQLTemplatesPage;
 import org.jkiss.dbeaver.ui.editors.sql.util.SQLSymbolInserter;
 import org.jkiss.dbeaver.ui.editors.text.BaseTextEditor;
-import org.jkiss.dbeaver.ui.editors.text.parser.SQLWordDetector;
+import org.jkiss.dbeaver.model.sql.parser.SQLWordDetector;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.Pair;
@@ -125,6 +128,7 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
     private OccurrencesFinderJob occurrencesFinderJob;
     private OccurrencesFinderJobCanceler occurrencesFinderJobCanceler;
     private ICharacterPairMatcher characterPairMatcher;
+    private SQLEditorCompletionContext completionContext;
 
     public SQLEditorBase() {
         super();
@@ -158,6 +162,8 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         //setDocumentProvider(new SQLDocumentProvider());
         setSourceViewerConfiguration(new SQLEditorSourceViewerConfiguration(this, getPreferenceStore()));
         setKeyBindingScopes(getKeyBindingContexts());  //$NON-NLS-1$
+
+        completionContext = new SQLEditorCompletionContext(this);
     }
 
     public static boolean isBigScript(@Nullable IEditorInput editorInput) {
@@ -398,11 +404,11 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         char[] matchChars = BRACKETS; //which brackets to match
         try {
             characterPairMatcher = new SQLCharacterPairMatcher(this, matchChars,
-                SQLPartitionScanner.SQL_PARTITIONING,
+                SQLParserPartitions.SQL_PARTITIONING,
                 true);
         } catch (Throwable e) {
             // If we below Eclipse 4.2.1
-            characterPairMatcher = new SQLCharacterPairMatcher(this, matchChars, SQLPartitionScanner.SQL_PARTITIONING);
+            characterPairMatcher = new SQLCharacterPairMatcher(this, matchChars, SQLParserPartitions.SQL_PARTITIONING);
         }
         support.setCharacterPairMatcher(characterPairMatcher);
         support.setMatchingCharacterPainterPreferenceKeys(SQLPreferenceConstants.MATCHING_BRACKETS, SQLPreferenceConstants.MATCHING_BRACKETS_COLOR);
@@ -582,10 +588,10 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         if (document instanceof IDocumentExtension3) {
             IDocumentPartitioner partitioner = new FastPartitioner(
                 new SQLPartitionScanner(dialect),
-                SQLPartitionScanner.SQL_CONTENT_TYPES);
+                SQLParserPartitions.SQL_CONTENT_TYPES);
             partitioner.connect(document);
             try {
-                ((IDocumentExtension3)document).setDocumentPartitioner(SQLPartitionScanner.SQL_PARTITIONING, partitioner);
+                ((IDocumentExtension3)document).setDocumentPartitioner(SQLParserPartitions.SQL_PARTITIONING, partitioner);
             } catch (Throwable e) {
                 log.warn("Error setting SQL partitioner", e); //$NON-NLS-1$
             }
@@ -690,7 +696,7 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
             return null;
         }
         final int docLength = document.getLength();
-        IDocumentPartitioner partitioner = document instanceof IDocumentExtension3 ? ((IDocumentExtension3)document).getDocumentPartitioner(SQLPartitionScanner.SQL_PARTITIONING) : null;
+        IDocumentPartitioner partitioner = document instanceof IDocumentExtension3 ? ((IDocumentExtension3)document).getDocumentPartitioner(SQLParserPartitions.SQL_PARTITIONING) : null;
         if (partitioner != null) {
             // Move to default partition. We don't want to be in the middle of multi-line comment or string
             while (currentPos < docLength && isMultiCommentPartition(partitioner, currentPos)) {
@@ -824,7 +830,7 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
     }
 
     private static boolean isMultiCommentPartition(IDocumentPartitioner partitioner, int currentPos) {
-        return partitioner != null && SQLPartitionScanner.CONTENT_TYPE_SQL_MULTILINE_COMMENT.equals(partitioner.getContentType(currentPos));
+        return partitioner != null && SQLParserPartitions.CONTENT_TYPE_SQL_MULTILINE_COMMENT.equals(partitioner.getContentType(currentPos));
     }
 
     private void startScriptEvaluation() {
@@ -866,6 +872,10 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
             }
         }
         return queryList;
+    }
+
+    public SQLCompletionContext getCompletionContext() {
+        return completionContext;
     }
 
     private static class ScriptBlockInfo {

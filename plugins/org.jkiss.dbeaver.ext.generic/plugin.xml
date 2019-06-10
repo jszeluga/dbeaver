@@ -719,6 +719,7 @@
 
                     <parameter name="supports-truncate" value="false"/>
                     <parameter name="supports-references" value="false"/>
+                    <parameter name="schema-filters-enabled" value="true"/>
                 </driver>
 
                 <!-- Cloudera -->
@@ -991,7 +992,7 @@
                         categories="analytics,sql">
                 </driver>
 
-                <!-- CreateDB -->
+                <!-- CrateDB -->
 
                 <driver
                     id="cratedb"
@@ -1021,7 +1022,7 @@
                 </driver>
                 -->
 
-                <!-- CreateDB -->
+                <!-- Pervasive SQL -->
 
                 <driver
                     id="pervasive_jdbc"

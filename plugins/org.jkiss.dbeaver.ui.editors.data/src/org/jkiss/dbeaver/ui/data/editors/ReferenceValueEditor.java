@@ -37,15 +37,14 @@ import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
+import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.AbstractLoadService;
 import org.jkiss.dbeaver.model.struct.*;
-import org.jkiss.dbeaver.registry.functions.AggregateFunctionDescriptor;
 import org.jkiss.dbeaver.ui.LoadingJob;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
-import org.jkiss.dbeaver.ui.controls.resultset.panel.aggregate.AggregateColumnsPanel;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerObjectOpen;
 import org.jkiss.dbeaver.ui.controls.ProgressLoaderVisualizer;
 import org.jkiss.dbeaver.ui.data.IAttributeController;
@@ -53,7 +52,6 @@ import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.dbeaver.ui.data.IValueEditor;
 import org.jkiss.dbeaver.ui.editors.data.DatabaseDataEditor;
 import org.jkiss.dbeaver.ui.editors.object.struct.EditDictionaryPage;
-import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -147,7 +145,7 @@ public class ReferenceValueEditor {
                             // Open
                             final IWorkbenchWindow window = valueController.getValueSite().getWorkbenchWindow();
                             UIUtils.runInUI(window, monitor -> {
-                                DBNDatabaseNode tableNode = NavigatorUtils.getNodeByObject(
+                                DBNDatabaseNode tableNode = DBNUtils.getNodeByObject(
                                     monitor,
                                     refTable,
                                     true
@@ -236,10 +234,13 @@ public class ReferenceValueEditor {
                 DBDDisplayFormat.UI);
             boolean valueFound = false;
             if (curTextValue != null) {
-                for (TableItem item : editorSelector.getItems()) {
+                TableItem[] items = editorSelector.getItems();
+                for (int i = 0; i < items.length; i++) {
+                    TableItem item = items[i];
                     if (curTextValue.equalsIgnoreCase(item.getText(0)) || curTextValue.equalsIgnoreCase(item.getText(1))) {
                         editorSelector.select(editorSelector.indexOf(item));
                         editorSelector.showItem(item);
+                        editorSelector.setTopIndex(i);
                         valueFound = true;
                         break;
                     }
@@ -339,15 +340,22 @@ public class ReferenceValueEditor {
                         DBDDisplayFormat.UI);
 
                 TableItem curItem = null;
-                for (TableItem item : editorSelector.getItems()) {
+                int curItemIndex = -1;
+                TableItem[] items = editorSelector.getItems();
+                for (int i = 0; i < items.length; i++) {
+                    TableItem item = items[i];
                     if (item.getText(0).equals(curTextValue)) {
                         curItem = item;
+                        curItemIndex = i;
                         break;
                     }
                 }
                 if (curItem != null) {
                     editorSelector.setSelection(curItem);
                     editorSelector.showItem(curItem);
+                    // Show cur item on top
+                    int finalCurItemIndex = curItemIndex;
+                    UIUtils.asyncExec(() -> editorSelector.setTopIndex(finalCurItemIndex));
                 } else {
                     editorSelector.deselectAll();
                 }

@@ -759,6 +759,10 @@ public class ResultSetViewer extends Viewer
                     });
                     panelButton.setChecked(panelsVisible && isPanelVisible(panel.getId()));
                 }
+
+                UIUtils.createEmptyLabel(panelSwitchFolder, 1, 1).setLayoutData(new GridData(GridData.FILL_VERTICAL));
+                VerticalButton.create(panelSwitchFolder, SWT.RIGHT | SWT.CHECK, getSite(), ResultSetHandlerMain.CMD_TOGGLE_LAYOUT, false);
+
             }
         } else {
             if (viewerSash != null) {
@@ -1387,6 +1391,12 @@ public class ResultSetViewer extends Viewer
         ResultSetPropertyTester.firePropertyChange(ResultSetPropertyTester.PROP_CHANGED);
         fireResultSetChange();
         updateToolbar();
+        // Enable presentations
+        for (VerticalButton pb : presentationSwitchFolder.getItems()) {
+            if (pb.getData() instanceof ResultSetPresentationDescriptor) {
+                pb.setVisible(!recordMode || ((ResultSetPresentationDescriptor) pb.getData()).supportsRecordMode());
+            }
+        }
     }
 
     /**
@@ -1499,6 +1509,9 @@ public class ResultSetViewer extends Viewer
 
         {
             ToolBarManager addToolbBarManagerar = new ToolBarManager(SWT.FLAT | SWT.HORIZONTAL | SWT.RIGHT);
+            addToolbBarManagerar.add(ActionUtils.makeCommandContribution(site, ResultSetHandlerMain.CMD_EXPORT));
+            //addToolbBarManagerar.add(new OpenWithAction());
+
             addToolbBarManagerar.add(new GroupMarker(TOOLBAR_GROUP_PRESENTATIONS));
             addToolbBarManagerar.add(new Separator(TOOLBAR_GROUP_ADDITIONS));
 
@@ -2226,6 +2239,7 @@ public class ResultSetViewer extends Viewer
                     viewMenu.add(customizeAction);
                 }
                 viewMenu.add(new TransformComplexTypesToggleAction());
+                viewMenu.add(new Separator());
                 viewMenu.add(new ColorizeDataTypesToggleAction());
                 {
                     if (valueController != null) {
@@ -2238,8 +2252,8 @@ public class ResultSetViewer extends Viewer
                     if (getModel().getSingleSource() != null && getModel().hasColorMapping(getModel().getSingleSource())) {
                         viewMenu.add(new ResetAllColorAction());
                     }
-                    viewMenu.add(new Separator());
                 }
+                viewMenu.add(new Separator());
                 viewMenu.add(new VirtualEntityEditAction());
                 viewMenu.add(new Action(ResultSetMessages.controls_resultset_viewer_action_data_formats) {
                     @Override
@@ -3739,7 +3753,32 @@ public class ResultSetViewer extends Viewer
         }
     }
 
-    private class ConfigAction extends Action implements IMenuCreator {
+    private class OpenWithAction extends Action {
+        OpenWithAction()
+        {
+            super(null, IAction.AS_DROP_DOWN_MENU);
+            setActionDefinitionId(ResultSetHandlerOpenWith.CMD_OPEN_WITH);
+            setImageDescriptor(DBeaverIcons.getImageDescriptor(UIIcon.SAVE_AS));
+        }
+
+        @Override
+        public IMenuCreator getMenuCreator()
+        {
+            return new MenuCreator(control -> {
+                MenuManager menuManager = new MenuManager();
+                fillOpenWithMenu(menuManager);
+                return menuManager;
+            });
+        }
+
+        @Override
+        public void runWithEvent(Event event)
+        {
+        }
+
+    }
+
+    private class ConfigAction extends Action {
         ConfigAction()
         {
             super(ResultSetMessages.controls_resultset_viewer_action_options, IAction.AS_DROP_DOWN_MENU);
@@ -3749,97 +3788,71 @@ public class ResultSetViewer extends Viewer
         @Override
         public IMenuCreator getMenuCreator()
         {
-            return this;
+            return new MenuCreator(control -> {
+                MenuManager configMenuManager = new MenuManager();
+                configMenuManager.add(new ShowFiltersAction(false));
+                //menuManager.add(new CustomizeColorsAction());
+                configMenuManager.add(new Separator());
+                VirtualUniqueKeyEditAction vkAction = new VirtualUniqueKeyEditAction(true);
+                if (vkAction.isEnabled()) {
+                    configMenuManager.add(vkAction);
+                }
+                VirtualUniqueKeyEditAction vkRemoveAction = new VirtualUniqueKeyEditAction(false);
+                if (vkRemoveAction.isEnabled()) {
+                    configMenuManager.add(vkRemoveAction);
+                }
+                configMenuManager.add(new DictionaryEditAction());
+                if (getDataContainer() != null) {
+                    configMenuManager.add(new VirtualEntityEditAction());
+                }
+                configMenuManager.add(new Separator());
+                if (activePresentationDescriptor != null && activePresentationDescriptor.supportsRecordMode()) {
+                    configMenuManager.add(new ToggleModeAction());
+                }
+                activePresentation.fillMenu(configMenuManager);
+                if (!CommonUtils.isEmpty(availablePresentations) && availablePresentations.size() > 1) {
+                    configMenuManager.add(new Separator());
+                    for (final ResultSetPresentationDescriptor pd : availablePresentations) {
+                        Action action = new Action(pd.getLabel(), IAction.AS_RADIO_BUTTON) {
+                            @Override
+                            public boolean isEnabled() {
+                                return !isRefreshInProgress();
+                            }
+                            @Override
+                            public boolean isChecked() {
+                                return pd == activePresentationDescriptor;
+                            }
+
+                            @Override
+                            public void run() {
+                                switchPresentation(pd);
+                            }
+                        };
+                        if (pd.getIcon() != null) {
+                            //action.setImageDescriptor(ImageDescriptor.createFromImage(pd.getIcon()));
+                        }
+                        configMenuManager.add(action);
+                    }
+                }
+                configMenuManager.add(new Separator());
+                configMenuManager.add(new Action("Preferences") {
+                    @Override
+                    public void run()
+                    {
+                        UIUtils.showPreferencesFor(
+                            getControl().getShell(),
+                            ResultSetViewer.this,
+                            PrefPageResultSetMain.PAGE_ID);
+                    }
+                });
+                return configMenuManager;
+            });
         }
 
         @Override
         public void runWithEvent(Event event)
         {
             new VirtualEntityEditAction().run();
-/*
-            Menu menu = getMenu(activePresentation.getControl());
-            if (menu != null && event.widget instanceof ToolItem) {
-                Rectangle bounds = ((ToolItem) event.widget).getBounds();
-                Point point = ((ToolItem) event.widget).getParent().toDisplay(bounds.x, bounds.y + bounds.height);
-                menu.setLocation(point.x, point.y);
-                menu.setVisible(true);
-            }
-*/
-        }
-
-        @Override
-        public void dispose()
-        {
-
-        }
-
-        @Override
-        public Menu getMenu(Control parent)
-        {
-            MenuManager menuManager = new MenuManager();
-            menuManager.add(new ShowFiltersAction(false));
-            //menuManager.add(new CustomizeColorsAction());
-            menuManager.add(new Separator());
-            VirtualUniqueKeyEditAction vkAction = new VirtualUniqueKeyEditAction(true);
-            if (vkAction.isEnabled()) {
-                menuManager.add(vkAction);
-            }
-            VirtualUniqueKeyEditAction vkRemoveAction = new VirtualUniqueKeyEditAction(false);
-            if (vkRemoveAction.isEnabled()) {
-                menuManager.add(vkRemoveAction);
-            }
-            menuManager.add(new DictionaryEditAction());
-            if (getDataContainer() != null) {
-                menuManager.add(new VirtualEntityEditAction());
-            }
-            menuManager.add(new Separator());
-            if (activePresentationDescriptor != null && activePresentationDescriptor.supportsRecordMode()) {
-                menuManager.add(new ToggleModeAction());
-            }
-            activePresentation.fillMenu(menuManager);
-            if (!CommonUtils.isEmpty(availablePresentations) && availablePresentations.size() > 1) {
-                menuManager.add(new Separator());
-                for (final ResultSetPresentationDescriptor pd : availablePresentations) {
-                    Action action = new Action(pd.getLabel(), IAction.AS_RADIO_BUTTON) {
-                        @Override
-                        public boolean isEnabled() {
-                            return !isRefreshInProgress();
-                        }
-                        @Override
-                        public boolean isChecked() {
-                            return pd == activePresentationDescriptor;
-                        }
-
-                        @Override
-                        public void run() {
-                            switchPresentation(pd);
-                        }
-                    };
-                    if (pd.getIcon() != null) {
-                        //action.setImageDescriptor(ImageDescriptor.createFromImage(pd.getIcon()));
-                    }
-                    menuManager.add(action);
-                }
-            }
-            menuManager.add(new Separator());
-            menuManager.add(new Action("Preferences") {
-                @Override
-                public void run()
-                {
-                    UIUtils.showPreferencesFor(
-                        getControl().getShell(),
-                        ResultSetViewer.this,
-                        PrefPageResultSetMain.PAGE_ID);
-                }
-            });
-            return menuManager.createContextMenu(parent);
-        }
-
-        @Nullable
-        @Override
-        public Menu getMenu(Menu parent)
-        {
-            return null;
         }
 
     }
@@ -3984,7 +3997,7 @@ public class ResultSetViewer extends Viewer
         DBCExecutionContext executionContext = getExecutionContext();
         String strValue = executionContext == null ? String.valueOf(value) : attribute.getValueHandler().getValueDisplayString(attribute, value, DBDDisplayFormat.UI);
         strValue = strValue.trim();
-        strValue = TextUtils.cutExtraLines(strValue, 1);
+        strValue = CommonUtils.cutExtraLines(strValue, 1);
         strValue = CommonUtils.truncateString(strValue, 30);
         if (operator.getArgumentCount() == 0) {
             return operator.getStringValue();

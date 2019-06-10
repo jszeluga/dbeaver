@@ -150,7 +150,9 @@ public final class DBUtils {
         }
         if (!hasBadChars && caseSensitiveNames) {
             // Check for case of quoted idents. Do not check for unquoted case - we don't need to quote em anyway
-            if (sqlDialect.supportsQuotedMixedCase()) {
+            // Disable supportsQuotedMixedCase checking. Let's quote identifiers always if storage case doesn't match actual case
+            /*if (sqlDialect.supportsQuotedMixedCase()) */
+            {
                 // See how unquoted idents are stored
                 // If passed identifier case differs from unquoted then we need to escape it
                 if (sqlDialect.storesUnquotedCase() == DBPIdentifierCase.UPPER) {
@@ -393,6 +395,11 @@ public final class DBUtils {
         return null;
     }
 
+    @Nullable
+    public static <T extends DBPNamedObject> T findObject(@Nullable Collection<T> theList, String objectName) {
+        return findObject(theList, objectName, false);
+    }
+
     /**
      * Finds object by its name (case insensitive)
      *
@@ -401,11 +408,10 @@ public final class DBUtils {
      * @return object or null
      */
     @Nullable
-    public static <T extends DBPNamedObject> T findObject(@Nullable Collection<T> theList, String objectName)
-    {
+    public static <T extends DBPNamedObject> T findObject(@Nullable Collection<T> theList, String objectName, boolean caseInsensitive) {
         if (theList != null && !theList.isEmpty()) {
             for (T object : theList) {
-                if (object.getName().equalsIgnoreCase(objectName)) {
+                if (caseInsensitive ? object.getName().equalsIgnoreCase(objectName) : object.getName().equals(objectName)) {
                     return object;
                 }
             }
@@ -413,16 +419,17 @@ public final class DBUtils {
         return null;
     }
 
+    /**
+     * Find object (case-sensitive)
+     */
     @Nullable
-    public static <T extends DBPNamedObject> T findObject(@Nullable List<T> theList, String objectName)
+    public static <T extends DBPNamedObject> T findObject(@Nullable T[] theList, String objectName)
     {
-        if (theList != null) {
-            int size = theList.size();
-            for (int i = 0; i < size; i++) {
-                if (theList.get(i).getName().equalsIgnoreCase(objectName)) {
-                    return theList.get(i);
+        if (theList != null && theList.length > 0 ) {
+            for (T object : theList) {
+                if (object.getName().equals(objectName)) {
+                    return object;
                 }
-
             }
         }
         return null;
@@ -1237,7 +1244,7 @@ public final class DBUtils {
         return dataTypeProvider.getLocalDataType(fullTypeName);
     }
 
-    public static DBPObject getPublicObject(@NotNull DBPObject object)
+    public static DBPObject getPublicObject(@Nullable DBPObject object)
     {
         if (object instanceof DBPDataSourceContainer) {
             return ((DBPDataSourceContainer) object).getDataSource();
