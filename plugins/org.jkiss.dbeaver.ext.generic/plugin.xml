@@ -1159,6 +1159,18 @@
                     <file type="jar" path="maven:/org.apache.calcite.avatica:avatica:RELEASE[1.15.0]"/>
                 </driver>
 
+                <driver
+                        id="vcg_druid"
+                        label="VCG Druid"
+                        icon="icons/druid_icon.png"
+                        iconBig="icons/druid_vcg_icon_big.png"
+                        class="org.apache.calcite.avatica.remote.Driver"
+                        sampleURL="jdbc:avatica:remote:url=https://{host}:{port}/druid/v2/sql/avatica/;truststore={file};truststore_password={password};keystore={file};keystore_password={password};key_password={password};http_proxy_host=caconj.ien-ats.vzbi.com;http_proxy_port=4080"
+                        defaultPort="4443"
+                        description="Druid JDBC driver"
+                        webURL="https://calcite.apache.org/avatica/">
+                    <file type="jar" path="https://github.com/jszeluga/calcite-avatica/releases/download/spirent-1.15.0/avatica-spirent-1.15.0.jar"/>
+                </driver>
 
                 <!-- Legacy drivers -->
 
