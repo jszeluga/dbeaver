@@ -1165,7 +1165,7 @@
                         icon="icons/druid_icon.png"
                         iconBig="icons/druid_vcg_icon_big.png"
                         class="com.spirent.cem.bach.extension.druid.driver.DruidDriver"
-                        sampleURL="jdbc:spirent:druid:url={host}:{port}/druid/v2/sql;keystore={file};keystore_password={password};keystore_type=pkcs12;http_proxy_host=caconj.ien-ats.vzbi.com;http_proxy_port=4080"
+                        sampleURL="jdbc:spirent:druid:url={host}:{port}/druid/v2/sql;keystore={file};keystore_password={password};keystore_type=pkcs12;http_proxy_host=caconj.ien-ats.vzbi.com;http_proxy_port=4443"
                         defaultPort="4443"
                         description="Druid JDBC driver"
                         webURL="http://druid.apache.org/docs/0.15.0-incubating/querying/sql.html">
